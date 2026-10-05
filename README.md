@@ -13,10 +13,14 @@ docker run -d --name fileshare \
   -p 8080:8080 \
   -e ADMIN_USER=admin \
   -e ADMIN_PASSWORD=请改成至少8位的强密码 \
-  -e PUBLIC_BASE_URL=http://你的域名或IP:8080 \
+  -e TRUST_PROXY=true \
   -v fileshare-data:/app/data \
   ghcr.io/judy-gotv/file-sharing:latest
 ```
+
+> 上传文件的地址会自动跟随访问方式：IP+端口访问就显示 `http://IP:端口/files/...`，
+> 经反代域名访问就显示 `https://域名/files/...`（反代需透传 `Host` 与 `X-Forwarded-Proto`，
+> 并设置 `TRUST_PROXY=true`）。`PUBLIC_BASE_URL` 仅在取不到 Host 时作为兜底。
 
 启动后打开：
 

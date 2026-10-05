@@ -977,6 +977,38 @@ async fn trigger_check(State(s): State<AppState>, h: HeaderMap) -> Result<Status
 
 // ======================= 文件上传(本地 / S3 / R2) =======================
 
+// 根据本次请求的 Host 自动拼出对外地址:域名访问显示域名,IP+端口访问显示IP+端口。
+// TRUST_PROXY=true 时信任 X-Forwarded-Proto 判定 http/https;Host 非法或缺失时回退 PUBLIC_BASE_URL。
+fn request_base(h: &HeaderMap, s: &AppState) -> String {
+    let host = h
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .split(',')
+        .next()
+        .unwrap_or("")
+        .trim();
+    let host_ok = !host.is_empty()
+        && host.len() <= 253
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':' | '[' | ']'));
+    if !host_ok {
+        return s.public_base.trim_end_matches('/').to_string();
+    }
+    let scheme = if s.trust_proxy {
+        h.get("x-forwarded-proto")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(',').next())
+            .map(|v| v.trim().to_ascii_lowercase())
+            .filter(|v| v == "https" || v == "http")
+            .unwrap_or_else(|| "http".to_string())
+    } else {
+        "http".to_string()
+    };
+    format!("{scheme}://{host}")
+}
+
 async fn upload(
     State(s): State<AppState>,
     h: HeaderMap,
@@ -1015,7 +1047,7 @@ async fn upload(
                 f.write_all(&c).await.map_err(ise)?;
             }
             f.flush().await.map_err(ise)?;
-            format!("{}/files/{}", s.public_base.trim_end_matches('/'), key)
+            format!("{}/files/{}", request_base(&h, &s).trim_end_matches('/'), key)
         };
         return Ok(Json(serde_json::json!({ "url": url, "name": orig })));
     }
