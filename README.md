@@ -14,7 +14,7 @@ docker run -d --name fileshare \
   -e ADMIN_USER=admin \
   -e ADMIN_PASSWORD=请改成至少8位的强密码 \
   -e TRUST_PROXY=true \
-  -v fileshare-data:/app/data \
+  -v /opt/fileshare-data:/app/data \
   ghcr.io/judy-gotv/file-sharing:latest
 ```
 
