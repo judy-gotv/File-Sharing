@@ -173,6 +173,14 @@ label.btn input{display:none}
               <table><thead><tr><th>IP</th><th data-i18n="note_ph"></th><th data-i18n="th_time"></th><th></th></tr></thead><tbody id="bl-tb"></tbody></table>
             </div>
           </div>
+          <div class="card" style="margin-top:16px">
+            <h3 data-i18n="site_settings"></h3>
+            <div class="row">
+              <label><input type="checkbox" id="sw-namedl"> <span data-i18n="name_dl_sw"></span></label>
+              <button id="sw-save" data-i18n="save"></button>
+            </div>
+            <div id="sw-msg" class="msg"></div>
+          </div>
         </section>
       </div>
     </div>
@@ -222,7 +230,7 @@ function showPage(k){
   curPage=k;
   document.querySelectorAll('.nav-item[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t===k));
   ['dash','items','cats','stats','sec'].forEach(p=>$('#p-'+p).hidden=(p!==k));
-  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadBL}[k];
+  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadSec}[k];
   run().catch(e=>{console.error(e)});
 }
 document.querySelectorAll('.nav-item[data-t]').forEach(b=>b.onclick=()=>showPage(b.dataset.t));
@@ -434,6 +442,17 @@ async function loadStats(){
 }
 
 /* ---------- 安全 ---------- */
+async function loadSec(){await Promise.all([loadBL(),loadSettings()]);}
+async function loadSettings(){
+  const d=await api('GET','/api/admin/settings');
+  $('#sw-namedl').checked=!!d.name_download;
+}
+$('#sw-save').onclick=async()=>{
+  try{
+    await api('PUT','/api/admin/settings',{name_download:$('#sw-namedl').checked});
+    $('#sw-msg').className='msg ok';$('#sw-msg').textContent=t('save_ok');
+  }catch(e){$('#sw-msg').className='msg';$('#sw-msg').textContent=e.message;}
+};
 $('#pw-go').onclick=async()=>{
   $('#pw-msg').className='msg';
   try{

@@ -12,7 +12,7 @@
 .chip.on{background:var(--grad);color:#fff;border-color:transparent}
 .u{display:flex;gap:8px}
 .u input{flex:1;min-width:0;padding:6px 8px;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-@media(max-width:700px){th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){display:none}}
+@media(max-width:700px){th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}}
 </style>
 </head>
 <body data-title="site_title">
@@ -36,7 +36,7 @@
         <table>
           <thead><tr>
             <th data-i18n="th_req"></th><th data-i18n="th_name"></th><th data-i18n="th_addr"></th>
-            <th data-i18n="th_desc"></th><th data-i18n="th_dl"></th>
+            <th data-i18n="th_desc"></th><th data-i18n="th_dl"></th><th data-i18n="th_copies"></th>
           </tr></thead>
           <tbody id="tb"></tbody>
         </table>
@@ -49,7 +49,12 @@
 </div>
 <script src="/common.js"></script>
 <script>
-const st={q:'',cat:null,page:1,size:20,pages:1};
+const st={q:'',cat:null,page:1,size:20,pages:1,nameDownload:true};
+
+async function loadSettings(){
+  try{nameDownload=(await (await fetch('/api/settings')).json()).name_download!==false;}
+  catch{nameDownload=true;}
+}
 
 async function loadCats(){
   const cs=await (await fetch('/api/categories')).json();
@@ -65,13 +70,18 @@ async function load(){
   const d=await (await fetch('/api/items?'+p)).json();
   st.pages=Math.max(1,Math.ceil(d.total/d.size));
   if(st.page>st.pages){st.page=st.pages;return load();}
-  $('#tb').innerHTML=d.items.length?d.items.map(i=>`<tr>
+  $('#tb').innerHTML=d.items.length?d.items.map(i=>{
+    const nm=st.nameDownload
+      ?`<a href="/go/${i.id}" target="_blank" rel="noopener">${esc(i.name)}</a>`
+      :esc(i.name);
+    return `<tr>
     <td><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
-    <td><a href="/go/${i.id}" target="_blank" rel="noopener">${esc(i.name)}</a>${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
+    <td>${nm}${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
     <td><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
     <td>${esc(i.description)}</td>
-    <td>${i.downloads}</td></tr>`).join('')
-    :`<tr><td colspan="5" class="empty">${t('none_found')}</td></tr>`;
+    <td>${i.downloads}</td><td>${i.copies}</td></tr>`;
+  }).join('')
+    :`<tr><td colspan="6" class="empty">${t('none_found')}</td></tr>`;
   $('#pinfo').textContent=t('page_info',st.page,st.pages,d.total);
   $('#prev').disabled=st.page<=1;
   $('#next').disabled=st.page>=st.pages;
@@ -99,7 +109,7 @@ $('#q').addEventListener('input',e=>{
   timer=setTimeout(()=>{st.q=e.target.value.trim();st.page=1;load();},250);
 });
 window.onLangChange=()=>{loadCats();load();};
-loadCats();load();
+loadSettings().then(()=>{loadCats();load();});
 </script>
 </body>
 </html>

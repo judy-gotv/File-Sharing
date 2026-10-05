@@ -638,11 +638,26 @@ async fn reorder_items(
 
 // ======================= 下载统计 / 复制统计 =======================
 
+// 站点设置(键值表)。读取失败时默认开启,保持与旧版本一致的行为。
+async fn setting_on(db: &sqlx::SqlitePool, key: &str) -> bool {
+    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
+        .bind(key)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten()
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(true)
+}
+
 async fn go(
     State(s): State<AppState>,
     Path(id): Path<i64>,
     headers: HeaderMap,
 ) -> Result<Redirect, StatusCode> {
+    if !setting_on(&s.db, "name_download").await {
+        return Err(StatusCode::FORBIDDEN);
+    }
     let url: Option<String> =
         sqlx::query_scalar("UPDATE items SET downloads = downloads + 1 WHERE id = ? RETURNING url")
             .bind(id)
@@ -860,6 +875,48 @@ async fn delete_cat(
 }
 
 // ======================= IP 黑名单 =======================
+
+// ======================= IP 黑名单 =======================
+
+// ======================= 站点设置 =======================
+
+#[derive(Deserialize)]
+struct SettingsIn {
+    #[serde(default)]
+    name_download: Option<bool>,
+}
+
+async fn get_settings(
+    State(s): State<AppState>,
+    h: HeaderMap,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    auth(&s, &h).await?;
+    Ok(Json(serde_json::json!({ "name_download": setting_on(&s.db, "name_download").await })))
+}
+
+async fn put_settings(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Json(b): Json<SettingsIn>,
+) -> Result<StatusCode, StatusCode> {
+    auth(&s, &h).await?;
+    if let Some(v) = b.name_download {
+        sqlx::query(
+            "INSERT INTO settings(key, value) VALUES('name_download', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        )
+        .bind(if v { "1" } else { "0" })
+        .execute(&s.db)
+        .await
+        .map_err(db_err)?;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// 前台公开读取(无需登录):首页据此决定名字是否可点击下载
+async fn public_settings(State(s): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "name_download": setting_on(&s.db, "name_download").await }))
+}
 
 async fn list_black(State(s): State<AppState>, h: HeaderMap) -> Result<Json<Vec<Black>>, StatusCode> {
     auth(&s, &h).await?;
@@ -1250,6 +1307,8 @@ async fn main() {
         .route("/api/items", get(list_items).post(create_item))
         .route("/api/items/:id", put(update_item).delete(delete_item))
         .route("/api/items/:id/copy", post(count_copy))
+        .route("/api/settings", get(public_settings))
+        .route("/api/admin/settings", get(get_settings).put(put_settings))
         .route("/api/categories", get(list_cats).post(create_cat))
         .route("/api/categories/:id", put(update_cat).delete(delete_cat))
         .route("/api/admin/items/batch", post(batch_items))

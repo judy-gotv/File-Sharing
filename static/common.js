@@ -55,6 +55,7 @@ stats_trend:'近 30 天趋势',downloads:'下载',copies:'复制',stats_sources:
 source:'来源',times:'次数',
 old_pw:'旧密码',new_pw:'新密码(至少 8 位)',change_pw:'修改密码',pw_ok:'密码已修改,其他设备已退出登录',
 bl_title:'IP 黑名单',ip_ph:'IP 地址',note_ph:'备注',bl_add:'加入黑名单',unblock:'解除',th_time:'时间',
+site_settings:'站点设置',name_dl_sw:'允许点击名字下载(跳转)',save_ok:'已保存',
 err_400:'参数错误(地址需以 http/https 等开头,仅限 ASCII,不含空格)',err_401:'用户名或密码错误',err_401s:'登录已过期,请重新登录',
 err_403:'访问被拒绝',err_404:'不存在',err_409:'已存在(地址、分类名重复或检测进行中)',err_422:'旧密码错误',
 err_429:'尝试次数过多,请 15 分钟后再试',err_502:'对象存储上传失败',err_x:'错误 {0}'
@@ -89,6 +90,7 @@ stats_trend:'近 30 天趨勢',downloads:'下載',copies:'複製',stats_sources:
 source:'來源',times:'次數',
 old_pw:'舊密碼',new_pw:'新密碼(至少 8 位)',change_pw:'修改密碼',pw_ok:'密碼已修改,其他裝置已登出',
 bl_title:'IP 黑名單',ip_ph:'IP 位址',note_ph:'備註',bl_add:'加入黑名單',unblock:'解除',th_time:'時間',
+site_settings:'網站設定',name_dl_sw:'允許點擊名稱下載(跳轉)',save_ok:'已儲存',
 err_400:'參數錯誤(位址需以 http/https 等開頭,僅限 ASCII,不含空格)',err_401:'使用者名稱或密碼錯誤',err_401s:'登入已過期,請重新登入',
 err_403:'存取被拒絕',err_404:'不存在',err_409:'已存在(位址、分類名重複或檢測進行中)',err_422:'舊密碼錯誤',
 err_429:'嘗試次數過多,請 15 分鐘後再試',err_502:'物件儲存上傳失敗',err_x:'錯誤 {0}'
@@ -123,6 +125,7 @@ stats_trend:'Last 30 days',downloads:'Downloads',copies:'Copies',stats_sources:'
 source:'Source',times:'Count',
 old_pw:'Old password',new_pw:'New password (min 8)',change_pw:'Change password',pw_ok:'Password changed. Other devices were logged out',
 bl_title:'IP blacklist',ip_ph:'IP address',note_ph:'Note',bl_add:'Block',unblock:'Remove',th_time:'Time',
+site_settings:'Site settings',name_dl_sw:'Allow clicking name to download (redirect)',save_ok:'Saved',
 err_400:'Invalid input (URL must use a supported scheme, ASCII only, no spaces)',err_401:'Wrong username or password',err_401s:'Session expired, please log in again',
 err_403:'Access denied',err_404:'Not found',err_409:'Already exists (duplicate URL/name, or a check is running)',err_422:'Old password is wrong',
 err_429:'Too many attempts, try again in 15 minutes',err_502:'Object storage upload failed',err_x:'Error {0}'
