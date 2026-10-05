@@ -1,0 +1,15 @@
+[Unit]
+Description=FileShare (Rust)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/fileshare
+EnvironmentFile=/opt/fileshare/.env
+Environment=LISTEN=127.0.0.1:8080
+Environment=TRUST_PROXY=true
+ExecStart=/opt/fileshare/fileshare
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

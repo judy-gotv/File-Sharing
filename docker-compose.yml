@@ -1,0 +1,14 @@
+services:
+  fileshare:
+    build: .
+    container_name: fileshare
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file: .env
+    environment:
+      LISTEN: 0.0.0.0:8080
+      TRUST_PROXY: "true"
+      TZ: Asia/Taipei
+    volumes:
+      - ./data:/app/data

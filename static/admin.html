@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理后台</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+tr[draggable=true]{cursor:move}
+.chartbox{overflow-x:auto}
+label.btn input{display:none}
+</style>
+</head>
+<body data-title="admin_title">
+<div class="shell no-side" id="shell">
+
+  <aside class="sidebar" id="side" hidden>
+    <div class="traffic"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="brand"><span class="logo" data-icon="folder"></span><span data-i18n="site_title"></span></div>
+    <button class="nav-item on" data-t="dash"><span data-icon="dashboard"></span><span data-i18n="nav_dashboard"></span></button>
+    <button class="nav-item" data-t="items"><span data-icon="file"></span><span data-i18n="tab_items"></span></button>
+    <button class="nav-item" data-t="cats"><span data-icon="folder"></span><span data-i18n="tab_cats"></span></button>
+    <button class="nav-item" data-t="stats"><span data-icon="chart"></span><span data-i18n="tab_stats"></span></button>
+    <button class="nav-item" data-t="sec"><span data-icon="shield"></span><span data-i18n="tab_sec"></span></button>
+    <div class="grow" style="flex:1"></div>
+    <a class="nav-item" href="/"><span data-icon="home"></span><span data-i18n="back_home"></span></a>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><span class="logo sm" data-icon="folder"></span><span data-i18n="admin_title"></span></div>
+      <div class="topright">
+        <div class="tools" id="tools"></div>
+        <div class="userchip" id="userchip" hidden>
+          <div class="avatar" id="avatar">A</div>
+          <div class="uinfo"><span id="who"></span><span class="role-badge" data-i18n="role_admin"></span></div>
+          <div class="menu" id="umenu" hidden>
+            <button class="gray" id="btnLogout"><span data-icon="logout"></span><span data-i18n="logout"></span></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- 登录页:渐变玻璃卡片 -->
+      <div id="login" class="login-wrap">
+        <div class="login-card">
+          <div class="logo" data-icon="folder"></div>
+          <h2 data-i18n="pg_login_t"></h2>
+          <p data-i18n="pg_login_d"></p>
+          <input id="lu" type="text" data-i18n-ph="username" autocomplete="username">
+          <input id="lp" type="password" data-i18n-ph="password" autocomplete="current-password">
+          <button id="btnLogin"><span data-i18n="login"></span></button>
+          <div id="lerr" class="msg"></div>
+        </div>
+      </div>
+
+      <div id="app" hidden>
+        <!-- 仪表盘 -->
+        <section id="p-dash">
+          <div class="page-head"><h2 data-i18n="pg_dash_t"></h2><p data-i18n="pg_dash_d"></p></div>
+          <div class="stats" id="stats"></div>
+          <div class="card">
+            <h3 data-i18n="remind_title"></h3>
+            <div id="remind"></div>
+          </div>
+        </section>
+
+        <!-- 条目 -->
+        <section id="p-items" hidden>
+          <div class="page-head"><h2 data-i18n="pg_items_t"></h2><p data-i18n="pg_items_d"></p></div>
+          <div class="card">
+            <div class="row">
+              <input id="f-name" type="text" data-i18n-ph="f_name" style="width:200px">
+              <input id="f-url" type="text" data-i18n-ph="f_url" style="width:340px">
+              <input id="f-desc" type="text" data-i18n-ph="f_desc" style="width:240px">
+            </div>
+            <div class="row">
+              <select id="f-cat"></select>
+              <input id="f-sort" type="number" value="0" style="width:90px" data-i18n-title="sort_tip">
+              <label><input id="f-req" type="checkbox"> <span data-i18n="req"></span></label>
+              <button id="f-save" data-i18n="add"></button>
+              <button id="f-cancel" class="gray" hidden data-i18n="cancel"></button>
+              <label class="btn gray"><span data-i18n="upload"></span><input id="f-file" type="file"></label>
+            </div>
+            <div id="f-msg" class="msg"></div>
+          </div>
+          <div class="card">
+            <div class="row">
+              <input id="s-q" type="text" data-i18n-ph="search_ph" style="width:240px">
+              <select id="s-cat"></select>
+              <button id="s-go" data-i18n="search"></button>
+              <button id="b-check" class="gray" data-i18n="check_now"></button>
+            </div>
+            <div class="row">
+              <button id="b-del" class="danger" data-i18n="b_del"></button>
+              <span data-i18n="b_move"></span> <select id="b-cat"></select>
+              <button id="b-move" data-i18n="save"></button>
+            </div>
+            <div class="hint" data-i18n="drag_tip"></div>
+            <div id="i-msg" class="msg"></div>
+            <div class="xscroll">
+            <table>
+              <thead><tr>
+                <th><input type="checkbox" id="chk-all"></th><th>ID</th><th data-i18n="th_req"></th><th data-i18n="th_name"></th>
+                <th>URL</th><th data-i18n="th_cat"></th><th data-i18n="th_sort"></th><th data-i18n="status"></th>
+                <th data-i18n="th_dl"></th><th data-i18n="th_copies"></th><th data-i18n="th_ops"></th>
+              </tr></thead>
+              <tbody id="it-tb"></tbody>
+            </table>
+            </div>
+            <div class="pager"><button id="prev" class="gray" data-i18n="prev"></button><span id="pinfo"></span><button id="next" class="gray" data-i18n="next"></button></div>
+          </div>
+        </section>
+
+        <!-- 分类 -->
+        <section id="p-cats" hidden>
+          <div class="page-head"><h2 data-i18n="pg_cats_t"></h2><p data-i18n="pg_cats_d"></p></div>
+          <div class="card">
+            <div class="row">
+              <input id="c-name" type="text" data-i18n-ph="cat_name_ph" style="width:200px">
+              <input id="c-sort" type="number" value="0" style="width:90px">
+              <button id="c-add" data-i18n="add"></button>
+            </div>
+            <div id="c-msg" class="msg"></div>
+            <table>
+              <thead><tr><th>ID</th><th data-i18n="th_name"></th><th data-i18n="th_sort"></th><th data-i18n="cat_count"></th><th data-i18n="th_ops"></th></tr></thead>
+              <tbody id="cat-tb"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 统计 -->
+        <section id="p-stats" hidden>
+          <div class="page-head"><h2 data-i18n="pg_stats_t"></h2><p data-i18n="pg_stats_d"></p></div>
+          <div class="card">
+            <h3><span data-i18n="stats_trend"></span>
+              <small style="font-weight:normal"> <span style="color:#3b82f6">■</span> <span data-i18n="downloads"></span>
+              <span style="color:#f59e0b">■</span> <span data-i18n="copies"></span></small></h3>
+            <div class="chartbox" id="chart"></div>
+          </div>
+          <div class="cols">
+            <div class="card">
+              <h3 data-i18n="stats_sources"></h3>
+              <table><thead><tr><th data-i18n="source"></th><th data-i18n="times"></th></tr></thead><tbody id="src-tb"></tbody></table>
+            </div>
+            <div class="card">
+              <h3 data-i18n="stats_top"></h3>
+              <table><thead><tr><th data-i18n="th_name"></th><th data-i18n="th_dl"></th><th data-i18n="th_copies"></th></tr></thead><tbody id="top-tb"></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 安全 -->
+        <section id="p-sec" hidden>
+          <div class="page-head"><h2 data-i18n="pg_sec_t"></h2><p data-i18n="pg_sec_d"></p></div>
+          <div class="cols">
+            <div class="card">
+              <h3 data-i18n="change_pw"></h3>
+              <div class="row"><input id="pw-old" type="password" data-i18n-ph="old_pw" autocomplete="current-password"></div>
+              <div class="row"><input id="pw-new" type="password" data-i18n-ph="new_pw" autocomplete="new-password"></div>
+              <button id="pw-go" data-i18n="change_pw"></button>
+              <div id="pw-msg" class="msg"></div>
+            </div>
+            <div class="card">
+              <h3 data-i18n="bl_title"></h3>
+              <div class="row">
+                <input id="bl-ip" type="text" data-i18n-ph="ip_ph" style="width:160px">
+                <input id="bl-note" type="text" data-i18n-ph="note_ph" style="width:160px">
+                <button id="bl-add" class="danger" data-i18n="bl_add"></button>
+              </div>
+              <div id="bl-msg" class="msg"></div>
+              <table><thead><tr><th>IP</th><th data-i18n="note_ph"></th><th data-i18n="th_time"></th><th></th></tr></thead><tbody id="bl-tb"></tbody></table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/common.js"></script>
+<script>
+let token=localStorage.getItem('tk')||'',cats=[],editId=null,cache={},pg={page:1,size:20,pages:1},curPage='dash';
+const tb=$('#it-tb');
+
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:body!==undefined?JSON.stringify(body):undefined});
+  if(r.status===401&&path!=='/api/auth/login'){logout();throw new Error(t('err_401s'));}
+  if(!r.ok)throw new Error(errMsg(r.status));
+  return r.status===204?null:r.json();
+}
+
+/* ---------- 登录 / 退出 / 用户 ---------- */
+function logout(){
+  token='';localStorage.removeItem('tk');
+  $('#login').hidden=false;$('#app').hidden=true;
+  $('#side').hidden=true;$('#shell').classList.add('no-side');$('#userchip').hidden=true;
+}
+async function enter(u){
+  $('#who').textContent=u;$('#avatar').textContent=(u[0]||'A').toUpperCase();
+  $('#login').hidden=true;$('#app').hidden=false;
+  $('#side').hidden=false;$('#shell').classList.remove('no-side');$('#userchip').hidden=false;
+  await refreshCats();showPage(curPage);
+}
+$('#btnLogin').onclick=async()=>{
+  $('#lerr').textContent='';
+  try{
+    const r=await api('POST','/api/auth/login',{username:$('#lu').value.trim(),password:$('#lp').value});
+    token=r.token;localStorage.setItem('tk',token);$('#lp').value='';await enter(r.username);
+  }catch(e){$('#lerr').textContent=e.message;}
+};
+$('#lp').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnLogin').click();});
+$('#lu').addEventListener('keydown',e=>{if(e.key==='Enter')$('#lp').focus();});
+$('#btnLogout').onclick=async()=>{try{await api('POST','/api/auth/logout');}catch{}logout();};
+$('#userchip').addEventListener('click',e=>{e.stopPropagation();$('#umenu').hidden=!$('#umenu').hidden;});
+document.addEventListener('click',()=>{$('#umenu').hidden=true;});
+async function boot(){if(!token)return;try{const r=await api('GET','/api/auth/check');await enter(r.username);}catch{}}
+
+/* ---------- 导航 ---------- */
+function showPage(k){
+  curPage=k;
+  document.querySelectorAll('.nav-item[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t===k));
+  ['dash','items','cats','stats','sec'].forEach(p=>$('#p-'+p).hidden=(p!==k));
+  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadBL}[k];
+  run().catch(e=>{console.error(e)});
+}
+document.querySelectorAll('.nav-item[data-t]').forEach(b=>b.onclick=()=>showPage(b.dataset.t));
+
+/* ---------- 仪表盘 ---------- */
+const STAT_DEF=[
+  ['st_items','file','blue','items'],['st_cats','folder','green','categories'],
+  ['st_dl_total','download','purple','downloads'],['st_dl_today','download','orange','today_downloads'],
+  ['st_cp_today','copy','pink','today_copies'],['st_dead','alert','red','dead']
+];
+function remind(color,icon,title,desc,btn){
+  return `<div class="remind"><div class="ri g-${color}">${ic(icon)}</div>
+    <div class="grow"><div class="rt">${title}</div>${desc?`<div class="rd">${desc}</div>`:''}</div>${btn||''}</div>`;
+}
+async function loadDash(){
+  const d=await api('GET','/api/admin/dashboard');
+  $('#stats').innerHTML=STAT_DEF.map(([k,icn,g,f])=>
+    `<div class="card stat"><div class="ic g-${g}">${ic(icn)}</div><div><div class="num">${d[f]}</div><div class="lbl">${t(k)}</div></div></div>`).join('');
+  const rows=[];
+  d.dead_list.forEach(x=>rows.push(remind('red','alert',t('rm_dead',esc(x.name)),
+    esc(x.url)+' · '+(x.checked_at?t('rm_checked',esc(x.checked_at)):t('rm_never')),
+    `<button data-go="edit" data-name="${esc(x.name)}">${t('rm_view')}</button>`)));
+  if(d.unchecked>0)rows.push(remind('orange','clock',t('rm_unchecked',d.unchecked),'',`<button data-go="check">${t('rm_check')}</button>`));
+  if(d.uncategorized>0&&d.categories>0)rows.push(remind('blue','folder',t('rm_uncat',d.uncategorized),'',''));
+  if(!rows.length)rows.push(remind('green','check',t('rm_ok'),'',''));
+  $('#remind').innerHTML=rows.join('');
+}
+$('#remind').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-go]');if(!b)return;
+  if(b.dataset.go==='edit'){
+    $('#s-q').value=b.dataset.name;$('#s-cat').value='';pg.page=1;showPage('items');
+  }else{
+    try{await api('POST','/api/admin/check');b.disabled=true;b.textContent=t('check_started');}
+    catch(err){alert(err.message);}
+  }
+});
+
+/* ---------- 分类 ---------- */
+function catOptions(first){
+  return `<option value="">${first}</option>`+cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+async function refreshCats(){
+  cats=await api('GET','/api/categories');
+  const fv=$('#f-cat').value,sv=$('#s-cat').value,bv=$('#b-cat').value;
+  $('#f-cat').innerHTML=catOptions(t('no_cat'));
+  $('#b-cat').innerHTML=catOptions(t('no_cat'));
+  $('#s-cat').innerHTML=catOptions(t('all_cats'));
+  $('#f-cat').value=fv;$('#s-cat').value=sv;$('#b-cat').value=bv;
+  $('#cat-tb').innerHTML=cats.map(c=>`<tr><td>${c.id}</td><td>${esc(c.name)}</td><td>${c.sort}</td><td>${c.count}</td>
+    <td><button data-a="cedit" data-id="${c.id}">${t('edit')}</button> <button class="danger" data-a="cdel" data-id="${c.id}">${t('del')}</button></td></tr>`).join('');
+}
+$('#c-add').onclick=async()=>{
+  try{
+    await api('POST','/api/categories',{name:$('#c-name').value.trim(),sort:Number($('#c-sort').value)||0});
+    $('#c-name').value='';$('#c-msg').textContent='';await refreshCats();
+  }catch(e){$('#c-msg').textContent=e.message;}
+};
+$('#cat-tb').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-a]');if(!b)return;
+  const id=Number(b.dataset.id),c=cats.find(x=>x.id===id);
+  try{
+    if(b.dataset.a==='cedit'){
+      const name=prompt(t('prompt_name'),c.name);if(name===null)return;
+      const sort=prompt(t('prompt_sort'),c.sort);if(sort===null)return;
+      await api('PUT','/api/categories/'+id,{name:name.trim(),sort:Number(sort)||0});
+    }else if(confirm(t('confirm_cat_del'))){
+      await api('DELETE','/api/categories/'+id);
+    }
+    await refreshCats();
+  }catch(err){alert(err.message);}
+});
+
+/* ---------- 条目 ---------- */
+function canDrag(){return !$('#s-q').value.trim()&&!$('#s-cat').value;}
+async function loadItems(){
+  const p=new URLSearchParams({page:pg.page,size:pg.size});
+  const q=$('#s-q').value.trim();if(q)p.set('q',q);
+  const c=$('#s-cat').value;if(c)p.set('category',c);
+  const d=await api('GET','/api/items?'+p);
+  pg.pages=Math.max(1,Math.ceil(d.total/d.size));
+  if(pg.page>pg.pages){pg.page=pg.pages;return loadItems();}
+  cache={};
+  const drag=canDrag();
+  tb.innerHTML=d.items.map(i=>{
+    cache[i.id]=i;
+    const status=i.alive===false?`<span class="tag req">${t('dead')}</span>`:
+      i.alive===true?`<span class="tag okt">${t('ok')}</span>`:`<span class="tag opt">${t('unknown')}</span>`;
+    return `<tr data-id="${i.id}" ${drag?'draggable="true"':''}>
+    <td><input type="checkbox" class="chk" data-id="${i.id}"></td>
+    <td>${drag?'☰ ':''}${i.id}</td>
+    <td><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
+    <td>${esc(i.name)}</td><td>${esc(i.url)}</td><td>${esc(i.category_name||'-')}</td><td>${i.sort}</td>
+    <td title="${esc(i.checked_at||'')}">${status}</td><td>${i.downloads}</td><td>${i.copies}</td>
+    <td><button data-a="edit" data-id="${i.id}">${t('edit')}</button> <button class="danger" data-a="del" data-id="${i.id}">${t('del')}</button></td></tr>`;
+  }).join('');
+  $('#pinfo').textContent=t('page_info',pg.page,pg.pages,d.total);
+  $('#chk-all').checked=false;
+}
+$('#s-go').onclick=()=>{pg.page=1;loadItems().catch(e=>$('#i-msg').textContent=e.message);};
+$('#s-q').addEventListener('keydown',e=>{if(e.key==='Enter')$('#s-go').click();});
+$('#prev').onclick=()=>{if(pg.page>1){pg.page--;loadItems();}};
+$('#next').onclick=()=>{if(pg.page<pg.pages){pg.page++;loadItems();}};
+
+function setSaveLabel(){
+  $('#f-save').dataset.i18n=editId?'save':'add';
+  $('#f-save').textContent=t(editId?'save':'add');
+  $('#f-cancel').hidden=!editId;
+}
+function resetForm(){
+  editId=null;
+  ['f-name','f-url','f-desc'].forEach(i=>$('#'+i).value='');
+  $('#f-sort').value=0;$('#f-req').checked=false;$('#f-cat').value='';
+  setSaveLabel();
+}
+$('#f-cancel').onclick=resetForm;
+$('#f-save').onclick=async()=>{
+  const body={
+    required:$('#f-req').checked,name:$('#f-name').value.trim(),url:$('#f-url').value.trim(),
+    description:$('#f-desc').value.trim(),sort:Number($('#f-sort').value)||0,
+    category_id:$('#f-cat').value?Number($('#f-cat').value):null
+  };
+  try{
+    if(editId)await api('PUT','/api/items/'+editId,body);else await api('POST','/api/items',body);
+    $('#f-msg').textContent='';resetForm();await refreshCats();await loadItems();
+  }catch(e){$('#f-msg').textContent=e.message;}
+};
+
+$('#f-file').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  $('#f-msg').textContent=t('uploading');
+  const fd=new FormData();fd.append('file',f);
+  try{
+    const r=await fetch('/api/admin/upload',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+    if(!r.ok)throw new Error(errMsg(r.status));
+    const d=await r.json();
+    $('#f-url').value=d.url;if(!$('#f-name').value)$('#f-name').value=d.name;
+    $('#f-msg').textContent='';
+  }catch(err){$('#f-msg').textContent=err.message;}
+  e.target.value='';
+};
+
+tb.addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-a]');if(!b)return;
+  const id=Number(b.dataset.id);
+  if(b.dataset.a==='edit'){
+    const i=cache[id];editId=id;
+    $('#f-name').value=i.name;$('#f-url').value=i.url;$('#f-desc').value=i.description;
+    $('#f-sort').value=i.sort;$('#f-req').checked=i.required;$('#f-cat').value=i.category_id??'';
+    setSaveLabel();window.scrollTo(0,0);
+  }else if(confirm(t('confirm_del'))){
+    try{await api('DELETE','/api/items/'+id);await refreshCats();await loadItems();}catch(err){alert(err.message);}
+  }
+});
+
+function selIds(){return [...document.querySelectorAll('.chk:checked')].map(x=>Number(x.dataset.id));}
+$('#chk-all').onchange=e=>document.querySelectorAll('.chk').forEach(x=>x.checked=e.target.checked);
+$('#b-del').onclick=async()=>{
+  const ids=selIds();if(!ids.length||!confirm(t('confirm_del_n',ids.length)))return;
+  try{await api('POST','/api/admin/items/batch',{action:'delete',ids});await refreshCats();await loadItems();}catch(e){alert(e.message);}
+};
+$('#b-move').onclick=async()=>{
+  const ids=selIds();if(!ids.length)return;
+  try{
+    await api('POST','/api/admin/items/batch',{action:'move',ids,category_id:$('#b-cat').value?Number($('#b-cat').value):null});
+    await refreshCats();await loadItems();
+  }catch(e){alert(e.message);}
+};
+$('#b-check').onclick=async()=>{
+  $('#i-msg').className='msg ok';
+  try{await api('POST','/api/admin/check');$('#i-msg').textContent=t('check_started');}
+  catch(e){$('#i-msg').className='msg';$('#i-msg').textContent=e.message;}
+};
+
+let dragEl=null;
+tb.addEventListener('dragstart',e=>{dragEl=e.target.closest('tr[draggable=true]');});
+tb.addEventListener('dragover',e=>{
+  if(!dragEl)return;e.preventDefault();
+  const tr=e.target.closest('tr');if(!tr||tr===dragEl)return;
+  const r=tr.getBoundingClientRect();
+  tb.insertBefore(dragEl,e.clientY>r.top+r.height/2?tr.nextSibling:tr);
+});
+tb.addEventListener('dragend',async()=>{
+  if(!dragEl)return;dragEl=null;
+  if(!canDrag())return;
+  const ids=[...tb.querySelectorAll('tr')].map(tr=>Number(tr.dataset.id));
+  try{await api('POST','/api/admin/items/reorder',{ids,base:(pg.page-1)*pg.size});}catch(e){alert(e.message);}
+  await loadItems();
+});
+
+/* ---------- 统计 ---------- */
+function chart(rows){
+  if(!rows.length)return `<p class="hint">${t('no_data')}</p>`;
+  const W=Math.max(600,rows.length*28+8),H=180,bw=10;
+  const max=Math.max(1,...rows.flatMap(r=>[r.downloads,r.copies]));
+  let s=`<svg width="${W}" height="${H+24}">`;
+  rows.forEach((r,i)=>{
+    const x=i*28+4,h1=r.downloads/max*H,h2=r.copies/max*H;
+    s+=`<rect x="${x}" y="${H-h1}" width="${bw}" height="${h1}" rx="2" fill="#3b82f6"><title>${r.day} ${t('downloads')}: ${r.downloads}</title></rect>`;
+    s+=`<rect x="${x+bw+1}" y="${H-h2}" width="${bw}" height="${h2}" rx="2" fill="#f59e0b"><title>${r.day} ${t('copies')}: ${r.copies}</title></rect>`;
+    s+=`<text x="${x}" y="${H+14}" font-size="9" fill="currentColor">${r.day.slice(5)}</text>`;
+  });
+  return s+'</svg>';
+}
+async function loadStats(){
+  const d=await api('GET','/api/admin/stats?days=30');
+  $('#chart').innerHTML=chart(d.daily);
+  $('#src-tb').innerHTML=d.sources.map(s=>`<tr><td>${esc(s.source)}</td><td>${s.count}</td></tr>`).join('')||`<tr><td colspan="2" class="empty">${t('no_data')}</td></tr>`;
+  $('#top-tb').innerHTML=d.top.map(s=>`<tr><td>${esc(s.name)}</td><td>${s.downloads}</td><td>${s.copies}</td></tr>`).join('')||`<tr><td colspan="3" class="empty">${t('no_data')}</td></tr>`;
+}
+
+/* ---------- 安全 ---------- */
+$('#pw-go').onclick=async()=>{
+  $('#pw-msg').className='msg';
+  try{
+    await api('POST','/api/auth/password',{old_password:$('#pw-old').value,new_password:$('#pw-new').value});
+    $('#pw-old').value='';$('#pw-new').value='';
+    $('#pw-msg').className='msg ok';$('#pw-msg').textContent=t('pw_ok');
+  }catch(e){$('#pw-msg').textContent=e.message;}
+};
+async function loadBL(){
+  const d=await api('GET','/api/admin/blacklist');
+  $('#bl-tb').innerHTML=d.map(b=>`<tr><td>${esc(b.ip)}</td><td>${esc(b.note)}</td><td>${esc(b.created_at)}</td>
+    <td><button class="danger" data-ip="${esc(b.ip)}">${t('unblock')}</button></td></tr>`).join('');
+}
+$('#bl-add').onclick=async()=>{
+  try{
+    await api('POST','/api/admin/blacklist',{ip:$('#bl-ip').value.trim(),note:$('#bl-note').value.trim()});
+    $('#bl-ip').value='';$('#bl-note').value='';$('#bl-msg').textContent='';await loadBL();
+  }catch(e){$('#bl-msg').textContent=e.message;}
+};
+$('#bl-tb').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-ip]');if(!b)return;
+  try{await api('DELETE','/api/admin/blacklist?ip='+encodeURIComponent(b.dataset.ip));await loadBL();}catch(err){alert(err.message);}
+});
+
+window.onLangChange=()=>{
+  if($('#app').hidden)return;
+  setSaveLabel();
+  refreshCats().then(()=>showPage(curPage)).catch(()=>{});
+};
+boot();
+</script>
+</body>
+</html>

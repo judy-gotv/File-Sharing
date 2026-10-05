@@ -1,0 +1,24 @@
+[package]
+name = "fileshare"
+version = "0.4.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "migrate"] }
+rust-embed = "8"
+mime_guess = "2"
+argon2 = "0.5"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+rust-s3 = { version = "0.34", default-features = false, features = ["tokio-rustls-tls"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

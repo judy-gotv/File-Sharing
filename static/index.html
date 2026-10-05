@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文件分享</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+#q{width:100%;padding:12px 14px;border-radius:12px;font-size:14px}
+.chips{margin:12px 0 16px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--card);color:var(--opt-fg);border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:13px;cursor:pointer;backdrop-filter:var(--blur)}
+.chip.on{background:var(--grad);color:#fff;border-color:transparent}
+.u{display:flex;gap:8px}
+.u input{flex:1;min-width:0;padding:6px 8px;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+@media(max-width:700px){th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5){display:none}}
+</style>
+</head>
+<body data-title="site_title">
+<div class="shell no-side">
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><span class="logo sm" data-icon="folder"></span><span data-i18n="site_title"></span></div>
+      <div class="topright">
+        <a class="btn gray" href="/admin"><span data-icon="shield"></span><span data-i18n="admin_link"></span></a>
+        <div class="tools" id="tools"></div>
+      </div>
+    </header>
+    <div class="content narrow">
+      <div class="page-head">
+        <h2 data-i18n="pg_home_t"></h2>
+        <p data-i18n="pg_home_d"></p>
+      </div>
+      <input id="q" type="text" data-i18n-ph="search_ph">
+      <div class="chips" id="chips"></div>
+      <div class="card flush xscroll">
+        <table>
+          <thead><tr>
+            <th data-i18n="th_req"></th><th data-i18n="th_name"></th><th data-i18n="th_addr"></th>
+            <th data-i18n="th_desc"></th><th data-i18n="th_dl"></th>
+          </tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button class="gray" id="prev" data-i18n="prev"></button><span id="pinfo"></span><button class="gray" id="next" data-i18n="next"></button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/common.js"></script>
+<script>
+const st={q:'',cat:null,page:1,size:20,pages:1};
+
+async function loadCats(){
+  const cs=await (await fetch('/api/categories')).json();
+  $('#chips').innerHTML=cs.length?
+    `<span class="chip ${st.cat==null?'on':''}" data-c="">${t('all')}</span>`+
+    cs.map(c=>`<span class="chip ${st.cat===c.id?'on':''}" data-c="${c.id}">${esc(c.name)} (${c.count})</span>`).join(''):'';
+}
+
+async function load(){
+  const p=new URLSearchParams({page:st.page,size:st.size});
+  if(st.q)p.set('q',st.q);
+  if(st.cat!=null)p.set('category',st.cat);
+  const d=await (await fetch('/api/items?'+p)).json();
+  st.pages=Math.max(1,Math.ceil(d.total/d.size));
+  if(st.page>st.pages){st.page=st.pages;return load();}
+  $('#tb').innerHTML=d.items.length?d.items.map(i=>`<tr>
+    <td><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
+    <td><a href="/go/${i.id}" target="_blank" rel="noopener">${esc(i.name)}</a>${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
+    <td><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
+    <td>${esc(i.description)}</td>
+    <td>${i.downloads}</td></tr>`).join('')
+    :`<tr><td colspan="5" class="empty">${t('none_found')}</td></tr>`;
+  $('#pinfo').textContent=t('page_info',st.page,st.pages,d.total);
+  $('#prev').disabled=st.page<=1;
+  $('#next').disabled=st.page>=st.pages;
+}
+
+$('#tb').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-u]');if(!b)return;
+  const u=b.dataset.u;
+  try{await navigator.clipboard.writeText(u)}catch{
+    const x=document.createElement('textarea');x.value=u;document.body.append(x);x.select();
+    document.execCommand('copy');x.remove();
+  }
+  fetch('/api/items/'+b.dataset.id+'/copy',{method:'POST',keepalive:true}).catch(()=>{});
+  b.textContent=t('copied');setTimeout(()=>b.textContent=t('copy'),1200);
+});
+$('#chips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip');if(!c)return;
+  st.cat=c.dataset.c===''?null:Number(c.dataset.c);st.page=1;loadCats();load();
+});
+$('#prev').onclick=()=>{if(st.page>1){st.page--;load();}};
+$('#next').onclick=()=>{if(st.page<st.pages){st.page++;load();}};
+let timer;
+$('#q').addEventListener('input',e=>{
+  clearTimeout(timer);
+  timer=setTimeout(()=>{st.q=e.target.value.trim();st.page=1;load();},250);
+});
+window.onLangChange=()=>{loadCats();load();};
+loadCats();load();
+</script>
+</body>
+</html>
