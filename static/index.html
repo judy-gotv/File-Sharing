@@ -13,6 +13,7 @@
 .u{display:flex;gap:8px}
 .u input{flex:1;min-width:0;padding:6px 8px;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
 @media(max-width:700px){th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}}
+table.no-dl .c-dl{display:none}
 </style>
 </head>
 <body data-title="site_title">
@@ -36,7 +37,7 @@
         <table>
           <thead><tr>
             <th data-i18n="th_req"></th><th data-i18n="th_name"></th><th data-i18n="th_addr"></th>
-            <th data-i18n="th_desc"></th><th data-i18n="th_dl"></th><th data-i18n="th_copies"></th>
+            <th data-i18n="th_desc"></th><th data-i18n="th_dl" class="c-dl"></th><th data-i18n="th_copies"></th>
           </tr></thead>
           <tbody id="tb"></tbody>
         </table>
@@ -52,8 +53,8 @@
 const st={q:'',cat:null,page:1,size:20,pages:1,nameDownload:true};
 
 async function loadSettings(){
-  try{nameDownload=(await (await fetch('/api/settings')).json()).name_download!==false;}
-  catch{nameDownload=true;}
+  try{st.nameDownload=(await (await fetch('/api/settings')).json()).name_download!==false;}
+  catch{st.nameDownload=true;}
 }
 
 async function loadCats(){
@@ -79,9 +80,10 @@ async function load(){
     <td>${nm}${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
     <td><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
     <td>${esc(i.description)}</td>
-    <td>${i.downloads}</td><td>${i.copies}</td></tr>`;
+    <td class="c-dl">${i.downloads}</td><td>${i.copies}</td></tr>`;
   }).join('')
-    :`<tr><td colspan="6" class="empty">${t('none_found')}</td></tr>`;
+    :`<tr><td colspan="${st.nameDownload?6:5}" class="empty">${t('none_found')}</td></tr>`;
+  $('#tb').closest('table').classList.toggle('no-dl',!st.nameDownload);
   $('#pinfo').textContent=t('page_info',st.page,st.pages,d.total);
   $('#prev').disabled=st.page<=1;
   $('#next').disabled=st.page>=st.pages;
