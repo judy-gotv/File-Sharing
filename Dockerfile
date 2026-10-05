@@ -1,4 +1,6 @@
 FROM rust:1-slim AS build
+# 显式安装 C 工具链: ring(Reqwest/rustls) 与 libsqlite3-sys(bundled) 编译需要
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential pkg-config && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY Cargo.toml build.rs ./
 COPY migrations ./migrations
