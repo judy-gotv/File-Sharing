@@ -12,8 +12,21 @@
 .chip.on{background:var(--grad);color:#fff;border-color:transparent}
 .u{display:flex;gap:8px}
 .u input{flex:1;min-width:0;padding:6px 8px;border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-@media(max-width:700px){th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}}
-table.no-dl .c-dl{display:none}
+@media(max-width:700px){
+  /* 移动端:列表转卡片,所有字段可见,无需横滑 */
+  #list-table thead{display:none}
+  #list-table tbody tr{display:block;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;padding:10px 12px}
+  #list-table td{display:block;border:0;padding:2px 0}
+  #list-table td.c-req,#list-table td.c-name{display:inline-block;vertical-align:middle;padding:0}
+  #list-table td.c-name{font-size:15px;font-weight:600;margin-left:8px;word-break:break-all}
+  #list-table td.c-addr{margin:8px 0 4px}
+  #list-table td.c-addr .u button{flex-shrink:0}
+  #list-table td.c-desc{color:var(--muted);font-size:12px;word-break:break-all}
+  #list-table td.c-dl,#list-table td.c-cp{display:inline-block;font-size:12px;color:var(--muted);margin-right:14px}
+  #list-table td.c-dl::before,#list-table td.c-cp::before{content:attr(data-label);margin-right:4px}
+  #list-table tbody tr:hover td{background:transparent}
+}
+#list-table.no-dl .c-dl{display:none}
 </style>
 </head>
 <body data-title="site_title">
@@ -34,7 +47,7 @@ table.no-dl .c-dl{display:none}
       <input id="q" type="text" data-i18n-ph="search_ph">
       <div class="chips" id="chips"></div>
       <div class="card flush xscroll">
-        <table>
+        <table id="list-table">
           <thead><tr>
             <th data-i18n="th_req"></th><th data-i18n="th_name"></th><th data-i18n="th_addr"></th>
             <th data-i18n="th_desc"></th><th data-i18n="th_dl" class="c-dl"></th><th data-i18n="th_copies"></th>
@@ -76,11 +89,11 @@ async function load(){
       ?`<a href="/go/${i.id}" target="_blank" rel="noopener">${esc(i.name)}</a>`
       :esc(i.name);
     return `<tr>
-    <td><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
-    <td>${nm}${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
-    <td><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
-    <td>${esc(i.description)}</td>
-    <td class="c-dl">${i.downloads}</td><td>${i.copies}</td></tr>`;
+    <td class="c-req"><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
+    <td class="c-name">${nm}${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
+    <td class="c-addr"><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
+    <td class="c-desc">${esc(i.description)}</td>
+    <td class="c-dl" data-label="${t('th_dl')}">${i.downloads}</td><td class="c-cp" data-label="${t('th_copies')}">${i.copies}</td></tr>`;
   }).join('')
     :`<tr><td colspan="${st.nameDownload?6:5}" class="empty">${t('none_found')}</td></tr>`;
   $('#tb').closest('table').classList.toggle('no-dl',!st.nameDownload);
