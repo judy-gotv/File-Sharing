@@ -61,7 +61,8 @@ struct AppState {
 #[derive(Serialize, FromRow)]
 struct Item {
     id: i64,
-    required: bool,
+    pinned: bool,
+    pin_color: String,
     name: String,
     url: String,
     description: String,
@@ -76,7 +77,10 @@ struct Item {
 
 #[derive(Deserialize)]
 struct ItemIn {
-    required: bool,
+    #[serde(default)]
+    pinned: bool,
+    #[serde(default)]
+    pin_color: Option<String>,
     name: String,
     url: String,
     #[serde(default)]
@@ -477,7 +481,7 @@ async fn guard(
 
 // ======================= 条目 =======================
 
-const ITEM_SELECT: &str = "SELECT i.id, i.required, i.name, i.url, i.description, i.sort,
+const ITEM_SELECT: &str = "SELECT i.id, i.pinned, i.pin_color, i.name, i.url, i.description, i.sort,
     i.category_id, c.name AS category_name, i.downloads, i.copies, i.alive, i.checked_at
     FROM items i LEFT JOIN categories c ON c.id = i.category_id";
 
@@ -505,7 +509,7 @@ async fn list_items(
         "{ITEM_SELECT}
          WHERE (i.name LIKE ?1 OR i.description LIKE ?1)
            AND (?2 IS NULL OR i.category_id = ?2)
-         ORDER BY i.required DESC, i.sort ASC, i.id ASC
+         ORDER BY i.pinned DESC, i.sort ASC, i.id ASC
          LIMIT ?3 OFFSET ?4"
     );
     let items = sqlx::query_as::<_, Item>(&sql)
@@ -519,6 +523,15 @@ async fn list_items(
     Ok(Json(Page { total, page, size, items }))
 }
 
+fn normalize_color(c: Option<&str>) -> String {
+    let c = c.unwrap_or("").trim();
+    if c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|x| x.is_ascii_hexdigit()) {
+        c.to_string()
+    } else {
+        "#f59e0b".to_string()
+    }
+}
+
 async fn create_item(
     State(s): State<AppState>,
     h: HeaderMap,
@@ -527,9 +540,10 @@ async fn create_item(
     auth(&s, &h).await?;
     validate(&i)?;
     let r = sqlx::query(
-        "INSERT INTO items(required,name,url,description,sort,category_id) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO items(pinned,pin_color,name,url,description,sort,category_id) VALUES(?,?,?,?,?,?,?)",
     )
-    .bind(i.required)
+    .bind(i.pinned)
+    .bind(normalize_color(i.pin_color.as_deref()))
     .bind(i.name.trim())
     .bind(i.url.trim())
     .bind(i.description.trim())
@@ -550,11 +564,12 @@ async fn update_item(
     auth(&s, &h).await?;
     validate(&i)?;
     let r = sqlx::query(
-        "UPDATE items SET required=?, name=?, url=?, description=?, sort=?, category_id=?,
+        "UPDATE items SET pinned=?, pin_color=?, name=?, url=?, description=?, sort=?, category_id=?,
                 alive=NULL, fail_count=0, checked_at=NULL
          WHERE id=?",
     )
-    .bind(i.required)
+    .bind(i.pinned)
+    .bind(normalize_color(i.pin_color.as_deref()))
     .bind(i.name.trim())
     .bind(i.url.trim())
     .bind(i.description.trim())
@@ -876,14 +891,167 @@ async fn delete_cat(
 
 // ======================= IP 黑名单 =======================
 
-// ======================= IP 黑名单 =======================
+// Markdown(含内嵌 HTML)转 HTML,用于弹窗公告与页脚
+fn md_to_html(md: &str) -> String {
+    let mut opts = pulldown_cmark::Options::empty();
+    opts.insert(pulldown_cmark::Options::ENABLE_TABLES);
+    opts.insert(pulldown_cmark::Options::ENABLE_FOOTNOTES);
+    opts.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+    opts.insert(pulldown_cmark::Options::ENABLE_TASKLISTS);
+    let parser = pulldown_cmark::Parser::new_ext(md, opts);
+    let mut out = String::new();
+    pulldown_cmark::html::push_html(&mut out, parser);
+    out
+}
+
+// ======================= 弹窗公告 =======================
+
+#[derive(Serialize, FromRow)]
+struct Ad {
+    id: i64,
+    title: String,
+    content: String,
+    enabled: bool,
+    sort: i64,
+    created_at: String,
+}
+
+#[derive(Deserialize)]
+struct AdIn {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    content: String,
+    #[serde(default = "ad_enabled_default")]
+    enabled: bool,
+    #[serde(default)]
+    sort: i64,
+}
+
+fn ad_enabled_default() -> bool {
+    true
+}
+
+async fn list_ads_pub(State(s): State<AppState>) -> Json<Vec<serde_json::Value>> {
+    let ads: Vec<Ad> = sqlx::query_as(
+        "SELECT id, title, content, enabled, sort, created_at FROM announcements
+         WHERE enabled = 1 ORDER BY sort ASC, id ASC",
+    )
+    .fetch_all(&s.db)
+    .await
+    .unwrap_or_default();
+    Json(
+        ads.into_iter()
+            .map(|a| serde_json::json!({ "id": a.id, "title": a.title, "html": md_to_html(&a.content) }))
+            .collect(),
+    )
+}
+
+async fn list_ads(State(s): State<AppState>, h: HeaderMap) -> Result<Json<Vec<Ad>>, StatusCode> {
+    auth(&s, &h).await?;
+    sqlx::query_as::<_, Ad>(
+        "SELECT id, title, content, enabled, sort, created_at FROM announcements ORDER BY sort ASC, id ASC",
+    )
+    .fetch_all(&s.db)
+    .await
+    .map(Json)
+    .map_err(db_err)
+}
+
+async fn create_ad(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Json(b): Json<AdIn>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    auth(&s, &h).await?;
+    if b.title.chars().count() > 200 || b.content.chars().count() > 20000 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let r = sqlx::query(
+        "INSERT INTO announcements(title, content, enabled, sort) VALUES(?,?,?,?)",
+    )
+    .bind(b.title.trim())
+    .bind(b.content)
+    .bind(b.enabled)
+    .bind(b.sort)
+    .execute(&s.db)
+    .await
+    .map_err(db_err)?;
+    Ok(Json(serde_json::json!({ "id": r.last_insert_rowid() })))
+}
+
+async fn update_ad(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<i64>,
+    Json(b): Json<AdIn>,
+) -> Result<StatusCode, StatusCode> {
+    auth(&s, &h).await?;
+    if b.title.chars().count() > 200 || b.content.chars().count() > 20000 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let r = sqlx::query(
+        "UPDATE announcements SET title=?, content=?, enabled=?, sort=? WHERE id=?",
+    )
+    .bind(b.title.trim())
+    .bind(b.content)
+    .bind(b.enabled)
+    .bind(b.sort)
+    .bind(id)
+    .execute(&s.db)
+    .await
+    .map_err(db_err)?;
+    if r.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_ad(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, StatusCode> {
+    auth(&s, &h).await?;
+    sqlx::query("DELETE FROM announcements WHERE id = ?")
+        .bind(id)
+        .execute(&s.db)
+        .await
+        .map_err(db_err)?;
+    Ok(StatusCode::NO_CONTENT)
+}
 
 // ======================= 站点设置 =======================
+
+async fn setting_str(db: &sqlx::SqlitePool, key: &str) -> String {
+    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
+        .bind(key)
+        .fetch_optional(db)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+
+async fn put_setting(db: &sqlx::SqlitePool, key: &str, value: &str) -> Result<(), StatusCode> {
+    sqlx::query(
+        "INSERT INTO settings(key, value) VALUES(?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(key)
+    .bind(value)
+    .execute(db)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
 
 #[derive(Deserialize)]
 struct SettingsIn {
     #[serde(default)]
     name_download: Option<bool>,
+    #[serde(default)]
+    footer_html: Option<String>,
 }
 
 async fn get_settings(
@@ -891,7 +1059,10 @@ async fn get_settings(
     h: HeaderMap,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     auth(&s, &h).await?;
-    Ok(Json(serde_json::json!({ "name_download": setting_on(&s.db, "name_download").await })))
+    Ok(Json(serde_json::json!({
+        "name_download": setting_on(&s.db, "name_download").await,
+        "footer_html": setting_str(&s.db, "footer_html").await,
+    })))
 }
 
 async fn put_settings(
@@ -901,21 +1072,24 @@ async fn put_settings(
 ) -> Result<StatusCode, StatusCode> {
     auth(&s, &h).await?;
     if let Some(v) = b.name_download {
-        sqlx::query(
-            "INSERT INTO settings(key, value) VALUES('name_download', ?)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        )
-        .bind(if v { "1" } else { "0" })
-        .execute(&s.db)
-        .await
-        .map_err(db_err)?;
+        put_setting(&s.db, "name_download", if v { "1" } else { "0" }).await?;
+    }
+    if let Some(v) = b.footer_html {
+        if v.chars().count() > 20000 {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        put_setting(&s.db, "footer_html", v.trim()).await?;
     }
     Ok(StatusCode::NO_CONTENT)
 }
 
-// 前台公开读取(无需登录):首页据此决定名字是否可点击下载
+// 前台公开读取(无需登录):首页据此决定名字是否可点击下载、渲染页脚
 async fn public_settings(State(s): State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "name_download": setting_on(&s.db, "name_download").await }))
+    let raw = setting_str(&s.db, "footer_html").await;
+    Json(serde_json::json!({
+        "name_download": setting_on(&s.db, "name_download").await,
+        "footer_html": md_to_html(&raw),
+    }))
 }
 
 async fn list_black(State(s): State<AppState>, h: HeaderMap) -> Result<Json<Vec<Black>>, StatusCode> {
@@ -1309,6 +1483,9 @@ async fn main() {
         .route("/api/items/:id/copy", post(count_copy))
         .route("/api/settings", get(public_settings))
         .route("/api/admin/settings", get(get_settings).put(put_settings))
+        .route("/api/ads", get(list_ads_pub))
+        .route("/api/admin/ads", get(list_ads).post(create_ad))
+        .route("/api/admin/ads/:id", put(update_ad).delete(delete_ad))
         .route("/api/categories", get(list_cats).post(create_cat))
         .route("/api/categories/:id", put(update_cat).delete(delete_cat))
         .route("/api/admin/items/batch", post(batch_items))

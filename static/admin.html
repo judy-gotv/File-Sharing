@@ -22,6 +22,7 @@ label.btn input{display:none}
     <button class="nav-item" data-t="cats"><span data-icon="folder"></span><span data-i18n="tab_cats"></span></button>
     <button class="nav-item" data-t="stats"><span data-icon="chart"></span><span data-i18n="tab_stats"></span></button>
     <button class="nav-item" data-t="sec"><span data-icon="shield"></span><span data-i18n="tab_sec"></span></button>
+    <button class="nav-item" data-t="ads"><span data-icon="mega"></span><span data-i18n="nav_ads"></span></button>
     <div class="grow" style="flex:1"></div>
     <a class="nav-item" href="/"><span data-icon="home"></span><span data-i18n="back_home"></span></a>
   </aside>
@@ -78,7 +79,8 @@ label.btn input{display:none}
             <div class="row">
               <select id="f-cat"></select>
               <input id="f-sort" type="number" value="0" style="width:90px" data-i18n-title="sort_tip">
-              <label><input id="f-req" type="checkbox"> <span data-i18n="req"></span></label>
+              <label><input id="f-pin" type="checkbox"> <span data-i18n="pinned"></span></label>
+              <input id="f-pincolor" type="color" value="#f59e0b" data-i18n-title="pin_color_tip" style="width:44px;height:30px;padding:2px">
               <button id="f-save" data-i18n="add"></button>
               <button id="f-cancel" class="gray" hidden data-i18n="cancel"></button>
               <label class="btn gray"><span data-i18n="upload"></span><input id="f-file" type="file"></label>
@@ -182,6 +184,30 @@ label.btn input{display:none}
             <div id="sw-msg" class="msg"></div>
           </div>
         </section>
+        <section id="p-ads" hidden>
+          <div class="page-head"><h2 data-i18n="pg_ads_t"></h2><p data-i18n="pg_ads_d"></p></div>
+          <div class="card">
+            <h3 id="ad-form-t" data-i18n="ad_new"></h3>
+            <div class="row"><input id="a-title" type="text" data-i18n-ph="f_title" style="width:320px"></div>
+            <div class="row"><textarea id="a-content" rows="6" data-i18n-ph="f_content" style="width:100%;max-width:640px"></textarea></div>
+            <div class="row">
+              <input id="a-sort" type="number" value="0" style="width:90px">
+              <label><input id="a-enabled" type="checkbox" checked> <span data-i18n="enabled"></span></label>
+              <button id="a-save" data-i18n="add"></button>
+              <button id="a-cancel" class="gray" hidden data-i18n="cancel"></button>
+            </div>
+            <div id="a-msg" class="msg"></div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <table><thead><tr><th data-i18n="f_title"></th><th data-i18n="th_sort"></th><th data-i18n="enabled"></th><th></th></tr></thead><tbody id="ad-tb"></tbody></table>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <h3 data-i18n="footer_t"></h3>
+            <div class="row"><textarea id="f-html" rows="4" data-i18n-ph="footer_ph" style="width:100%;max-width:640px"></textarea></div>
+            <div class="row"><button id="f-save2" data-i18n="save"></button></div>
+            <div id="f-msg2" class="msg"></div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -229,8 +255,8 @@ async function boot(){if(!token)return;try{const r=await api('GET','/api/auth/ch
 function showPage(k){
   curPage=k;
   document.querySelectorAll('.nav-item[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t===k));
-  ['dash','items','cats','stats','sec'].forEach(p=>$('#p-'+p).hidden=(p!==k));
-  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadSec}[k];
+  ['dash','items','cats','stats','sec','ads'].forEach(p=>$('#p-'+p).hidden=(p!==k));
+  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadSec,ads:loadAds}[k];
   run().catch(e=>{console.error(e)});
 }
 document.querySelectorAll('.nav-item[data-t]').forEach(b=>b.onclick=()=>showPage(b.dataset.t));
@@ -321,7 +347,7 @@ async function loadItems(){
     return `<tr data-id="${i.id}" ${drag?'draggable="true"':''}>
     <td><input type="checkbox" class="chk" data-id="${i.id}"></td>
     <td>${drag?'☰ ':''}${i.id}</td>
-    <td><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
+    <td>${i.pinned?`<span class="tag pin" style="border-color:${esc(i.pin_color)};color:${esc(i.pin_color)}">${t('pinned')}</span>`:'-'}</td>
     <td>${esc(i.name)}</td><td>${esc(i.url)}</td><td>${esc(i.category_name||'-')}</td><td>${i.sort}</td>
     <td title="${esc(i.checked_at||'')}">${status}</td><td>${i.downloads}</td><td>${i.copies}</td>
     <td><button data-a="edit" data-id="${i.id}">${t('edit')}</button> <button class="danger" data-a="del" data-id="${i.id}">${t('del')}</button></td></tr>`;
@@ -342,13 +368,13 @@ function setSaveLabel(){
 function resetForm(){
   editId=null;
   ['f-name','f-url','f-desc'].forEach(i=>$('#'+i).value='');
-  $('#f-sort').value=0;$('#f-req').checked=false;$('#f-cat').value='';
+  $('#f-sort').value=0;$('#f-pin').checked=false;$('#f-pincolor').value='#f59e0b';$('#f-cat').value='';
   setSaveLabel();
 }
 $('#f-cancel').onclick=resetForm;
 $('#f-save').onclick=async()=>{
   const body={
-    required:$('#f-req').checked,name:$('#f-name').value.trim(),url:$('#f-url').value.trim(),
+    pinned:$('#f-pin').checked,pin_color:$('#f-pincolor').value,name:$('#f-name').value.trim(),url:$('#f-url').value.trim(),
     description:$('#f-desc').value.trim(),sort:Number($('#f-sort').value)||0,
     category_id:$('#f-cat').value?Number($('#f-cat').value):null
   };
@@ -378,7 +404,7 @@ tb.addEventListener('click',async e=>{
   if(b.dataset.a==='edit'){
     const i=cache[id];editId=id;
     $('#f-name').value=i.name;$('#f-url').value=i.url;$('#f-desc').value=i.description;
-    $('#f-sort').value=i.sort;$('#f-req').checked=i.required;$('#f-cat').value=i.category_id??'';
+    $('#f-sort').value=i.sort;$('#f-pin').checked=!!i.pinned;$('#f-pincolor').value=i.pin_color||'#f59e0b';$('#f-cat').value=i.category_id??'';
     setSaveLabel();window.scrollTo(0,0);
   }else if(confirm(t('confirm_del'))){
     try{await api('DELETE','/api/items/'+id);await refreshCats();await loadItems();}catch(err){alert(err.message);}
@@ -481,6 +507,61 @@ window.onLangChange=()=>{
   if($('#app').hidden)return;
   setSaveLabel();
   refreshCats().then(()=>showPage(curPage)).catch(()=>{});
+};
+/* ---------- 公告 ---------- */
+let adEditId=null;
+async function loadAds(){
+  await Promise.all([loadAdList(),loadFooter()]);
+}
+async function loadAdList(){
+  const d=await api('GET','/api/admin/ads');
+  $('#ad-tb').innerHTML=d.map(a=>`<tr><td>${esc(a.title)||'-'}</td><td>${a.sort}</td>
+    <td>${a.enabled?'✓':'-'}</td><td>${esc(a.created_at||'')}</td>
+    <td><button data-a="adedit" data-id="${a.id}">${t('edit')}</button>
+    <button class="danger" data-a="addel" data-id="${a.id}">${t('del')}</button></td></tr>`).join('')
+    ||`<tr><td colspan="5" class="empty">${t('none_found')}</td></tr>`;
+}
+function resetAdForm(){
+  adEditId=null;$('#a-title').value='';$('#a-content').value='';$('#a-sort').value=0;$('#a-enabled').checked=true;
+  $('#ad-form-t').textContent=t('ad_new');$('#a-save').textContent=t('add');$('#a-cancel').hidden=true;
+}
+$('#a-cancel').onclick=resetAdForm;
+$('#a-save').onclick=async()=>{
+  $('#a-msg').className='msg';
+  const body={title:$('#a-title').value.trim(),content:$('#a-content').value,
+    enabled:$('#a-enabled').checked,sort:Number($('#a-sort').value)||0};
+  try{
+    if(adEditId)await api('PUT','/api/admin/ads/'+adEditId,body);
+    else await api('POST','/api/admin/ads',body);
+    $('#a-msg').className='msg ok';$('#a-msg').textContent=t('save_ok');
+    resetAdForm();await loadAdList();
+  }catch(e){$('#a-msg').textContent=e.message;}
+};
+$('#ad-tb').onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const id=b.dataset.id;
+  if(b.dataset.a==='addel'){
+    if(!confirm(t('confirm_del_ad')))return;
+    await api('DELETE','/api/admin/ads/'+id);await loadAdList();
+  }else if(b.dataset.a==='adedit'){
+    const d=await api('GET','/api/admin/ads');
+    const a=d.find(x=>x.id==id);if(!a)return;
+    adEditId=a.id;$('#a-title').value=a.title;$('#a-content').value=a.content;
+    $('#a-sort').value=a.sort;$('#a-enabled').checked=!!a.enabled;
+    $('#ad-form-t').textContent=t('ad_edit_t');$('#a-save').textContent=t('save');$('#a-cancel').hidden=false;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+};
+async function loadFooter(){
+  const d=await api('GET','/api/admin/settings');
+  $('#f-html').value=d.footer_html||'';
+}
+$('#f-save2').onclick=async()=>{
+  $('#f-msg2').className='msg';
+  try{
+    await api('PUT','/api/admin/settings',{footer_html:$('#f-html').value});
+    $('#f-msg2').className='msg ok';$('#f-msg2').textContent=t('save_ok');
+  }catch(e){$('#f-msg2').textContent=e.message;}
 };
 boot();
 </script>

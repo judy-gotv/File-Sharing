@@ -27,6 +27,26 @@
   #list-table tbody tr:hover td{background:transparent}
 }
 #list-table.no-dl .c-dl{display:none}
+.page-foot{text-align:center;color:var(--muted);font-size:13px;margin:26px 0 10px;line-height:1.8;word-break:break-word}
+.page-foot a{color:#3b82f6}
+/* 弹窗公告:尺寸随内容自适应 */
+.modal-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99;padding:16px}
+.modal-bd[hidden]{display:none}
+.modal-card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:18px;width:min(92vw,600px);max-height:84vh;overflow:auto;padding:26px 26px 22px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.modal-x{position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:50%;background:var(--row);color:var(--muted);font-size:18px;line-height:1}
+.modal-head{display:flex;align-items:center;justify-content:center;gap:8px;font-size:19px;font-weight:700;margin-bottom:8px}
+.modal-head .ico{width:22px;height:22px}
+.md-body{line-height:1.7;word-break:break-word}
+.md-body h1,.md-body h2,.md-body h3{margin:.6em 0 .4em}
+.md-body p{margin:.5em 0}
+.md-body ul,.md-body ol{padding-left:1.4em;margin:.5em 0}
+.md-body a{color:#3b82f6}
+.md-body img{max-width:100%;border-radius:8px}
+.md-body pre{background:var(--row);padding:10px 12px;border-radius:8px;overflow:auto}
+.md-body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em}
+.md-body table{width:100%;border-collapse:collapse;margin:.6em 0}
+.md-body th,.md-body td{border:1px solid var(--border);padding:6px 10px}
+#ad-ok{display:block;margin:18px auto 0;background:var(--grad);color:#fff;border:0;border-radius:999px;padding:10px 46px;font-size:15px;cursor:pointer}
 </style>
 </head>
 <body data-title="site_title">
@@ -58,7 +78,16 @@
       <div class="pager">
         <button class="gray" id="prev" data-i18n="prev"></button><span id="pinfo"></span><button class="gray" id="next" data-i18n="next"></button>
       </div>
+      <footer id="site-footer" class="page-foot" hidden></footer>
     </div>
+  </div>
+</div>
+<div id="ad-modal" class="modal-bd" hidden>
+  <div class="modal-card">
+    <button class="modal-x" id="ad-x" aria-label="close">×</button>
+    <div class="modal-head"><span data-icon="mega"></span><span data-i18n="ad_title"></span></div>
+    <div id="ad-body" class="md-body"></div>
+    <button id="ad-ok" data-i18n="ad_ok"></button>
   </div>
 </div>
 <script src="/common.js"></script>
@@ -66,9 +95,26 @@
 const st={q:'',cat:null,page:1,size:20,pages:1,nameDownload:true};
 
 async function loadSettings(){
-  try{st.nameDownload=(await (await fetch('/api/settings')).json()).name_download!==false;}
-  catch{st.nameDownload=true;}
+  try{
+    const s=await (await fetch('/api/settings')).json();
+    st.nameDownload=s.name_download!==false;
+    if(s.footer_html){
+      $('#site-footer').innerHTML=s.footer_html;
+      $('#site-footer').hidden=false;
+    }
+  }catch{st.nameDownload=true;}
 }
+
+async function loadAds(){
+  try{
+    const ads=await (await fetch('/api/ads')).json();
+    if(!ads.length)return;
+    $('#ad-body').innerHTML=ads[0].html;
+    $('#ad-modal').hidden=false;
+  }catch{}
+}
+$('#ad-x').onclick=()=>{$('#ad-modal').hidden=true;};
+$('#ad-ok').onclick=()=>{$('#ad-modal').hidden=true;};
 
 async function loadCats(){
   const cs=await (await fetch('/api/categories')).json();
@@ -88,8 +134,10 @@ async function load(){
     const nm=st.nameDownload
       ?`<a href="/go/${i.id}" target="_blank" rel="noopener">${esc(i.name)}</a>`
       :esc(i.name);
+    const pin=i.pinned
+      ?`<span class="tag pin" style="border-color:${esc(i.pin_color)};color:${esc(i.pin_color)}">${t('pinned')}</span>`:'';
     return `<tr>
-    <td class="c-req"><span class="tag ${i.required?'req':'opt'}">${i.required?t('req'):t('opt')}</span></td>
+    <td class="c-req">${pin}</td>
     <td class="c-name">${nm}${i.alive===false?` <span class="tag req">${t('dead')}</span>`:''}</td>
     <td class="c-addr"><div class="u"><input type="text" readonly value="${esc(i.url)}"><button data-u="${esc(i.url)}" data-id="${i.id}">${t('copy')}</button></div></td>
     <td class="c-desc">${esc(i.description)}</td>
@@ -124,7 +172,7 @@ $('#q').addEventListener('input',e=>{
   timer=setTimeout(()=>{st.q=e.target.value.trim();st.page=1;load();},250);
 });
 window.onLangChange=()=>{loadCats();load();};
-loadSettings().then(()=>{loadCats();load();});
+loadSettings().then(()=>{loadCats();load();loadAds();});
 </script>
 </body>
 </html>
