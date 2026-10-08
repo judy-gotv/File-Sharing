@@ -1362,7 +1362,7 @@ async fn static_handler(uri: Uri) -> Response {
             (
                 [
                     (header::CONTENT_TYPE, m.to_string()),
-                    (header::CACHE_CONTROL, "no-cache".to_string()),
+                    (header::CACHE_CONTROL, "no-store".to_string()),
                 ],
                 f.data,
             )
