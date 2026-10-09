@@ -387,7 +387,13 @@ $('#f-save').onclick=async()=>{
 $('#f-file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   $('#f-msg').textContent=t('uploading');
-  const fd=new FormData();fd.append('file',f);
+  const fd=new FormData();
+  // 编辑模式且当前地址是本站上传的文件(/files/{key}):复用 key 覆盖上传,URL 保持不变
+  if(editId){
+    const m=$('#f-url').value.match(/\/files\/([A-Za-z0-9]{8}-[A-Za-z0-9._-]+)(?:[?#]|$)/);
+    if(m)fd.append('key',m[1]);
+  }
+  fd.append('file',f);
   try{
     const r=await fetch('/api/admin/upload',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
     if(!r.ok)throw new Error(errMsg(r.status));

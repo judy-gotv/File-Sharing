@@ -51,7 +51,7 @@ docker compose up -d --build
 - 账号密码登录（Argon2 哈希、7 天会话）、登录限速 + IP 黑名单
 - 拖拽排序 / 批量删除 / 批量移动分类
 - 失效链接检测（后台定时 + 手动触发）
-- 文件上传：本地目录或 S3 / Cloudflare R2
+- 文件上传：本地目录或 S3 / Cloudflare R2；编辑条目时重新上传同文件会覆盖原文件，下载地址保持不变
 - `/healthz` 健康检查、`/metrics` Prometheus 指标
 - M3U 文件作为普通条目添加即可，系统不做解析
 

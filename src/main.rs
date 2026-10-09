@@ -1240,18 +1240,43 @@ fn request_base(h: &HeaderMap, s: &AppState) -> String {
     format!("{scheme}://{host}")
 }
 
+// 上传 key 必须形如 {8位随机}-{sanitize后的文件名},防路径穿越
+fn valid_key(k: &str) -> bool {
+    let b = k.as_bytes();
+    if b.len() < 10 || b.len() > 109 || k.contains("..") {
+        return false;
+    }
+    b[..8].iter().all(|c| c.is_ascii_alphanumeric())
+        && b[8] == b'-'
+        && b[9..]
+            .iter()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'-' | b'_'))
+}
+
 async fn upload(
     State(s): State<AppState>,
     h: HeaderMap,
     mut mp: Multipart,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     auth(&s, &h).await?;
+    // 复用 key 则覆盖原文件,URL 不变(编辑条目时修复源码重传用);key 字段须在 file 字段之前
+    let mut reuse_key: Option<String> = None;
     while let Some(mut field) = mp.next_field().await.map_err(|_| StatusCode::BAD_REQUEST)? {
-        if field.name() != Some("file") {
-            continue;
+        match field.name() {
+            Some("key") => {
+                let v = field.text().await.map_err(|_| StatusCode::BAD_REQUEST)?;
+                if valid_key(&v) {
+                    reuse_key = Some(v);
+                }
+                continue;
+            }
+            Some("file") => {}
+            _ => continue,
         }
         let orig = field.file_name().unwrap_or("file").to_string();
-        let key = format!("{}-{}", rand_str(8), sanitize(&orig));
+        let key = reuse_key
+            .clone()
+            .unwrap_or_else(|| format!("{}-{}", rand_str(8), sanitize(&orig)));
 
         let url = if let Some(bucket) = &s.s3 {
             let mut data: Vec<u8> = Vec::new();
