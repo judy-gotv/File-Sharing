@@ -29,6 +29,22 @@
 #list-table.no-dl .c-dl{display:none}
 .page-foot{text-align:center;color:var(--muted);font-size:13px;margin:26px 0 10px;line-height:1.8;word-break:break-word}
 .page-foot a{color:#3b82f6}
+/* 跑马灯:首页顶部滚动横幅,自适应宽度 */
+.marquee{overflow:hidden;border:1px solid var(--border);border-radius:12px;background:var(--card);margin-bottom:16px}
+.mq-track{display:inline-flex;align-items:center;white-space:nowrap;will-change:transform;animation:mq-scroll 30s linear infinite;padding:10px 0}
+.marquee:hover .mq-track{animation-play-state:paused}
+@keyframes mq-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.mq-item{display:inline-flex;align-items:center;font-size:14px;font-weight:600;line-height:1.5}
+.mq-item p,.mq-item h1,.mq-item h2,.mq-item h3,.mq-item h4,.mq-item ul,.mq-item ol,.mq-item blockquote{display:inline;margin:0;padding:0}
+.mq-item li{display:inline}
+.mq-item img{max-height:1.6em;vertical-align:middle}
+.mq-sep{margin:0 28px;color:var(--muted);font-size:12px;flex-shrink:0}
+@media(max-width:700px){
+  .marquee{margin-bottom:12px;border-radius:10px}
+  .mq-track{padding:8px 0}
+  .mq-item{font-size:13px}
+  .mq-sep{margin:0 18px}
+}
 /* 弹窗公告:尺寸随内容自适应 */
 .modal-bd{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:99;padding:16px}
 .modal-bd[hidden]{display:none}
@@ -71,10 +87,7 @@
       </div>
     </header>
     <div class="content narrow">
-      <div class="page-head">
-        <h2 data-i18n="pg_home_t"></h2>
-        <p data-i18n="pg_home_d"></p>
-      </div>
+      <div class="marquee" id="marquee" hidden><div class="mq-track" id="mq-track"></div></div>
       <input id="q" type="text" data-i18n-ph="search_ph">
       <div class="chips" id="chips"></div>
       <div class="card flush xscroll">
@@ -101,7 +114,7 @@
     <button id="ad-ok" data-i18n="ad_ok"></button>
   </div>
 </div>
-<script src="/common.js?v=20261008"></script>
+<script src="/common.js?v=20261014"></script>
 <script>
 const st={q:'',cat:null,page:1,size:20,pages:1,nameDownload:true};
 
@@ -126,6 +139,21 @@ async function loadAds(){
 }
 $('#ad-x').onclick=()=>{$('#ad-modal').hidden=true;};
 $('#ad-ok').onclick=()=>{$('#ad-modal').hidden=true;};
+
+async function loadMarquee(){
+  try{
+    const ms=await (await fetch('/api/marquees')).json();
+    if(!ms.length)return;
+    const sep='<span class="mq-sep">◆</span>';
+    const unit=ms.map(m=>`<span class="mq-item" style="color:${m.color}">${m.html}</span>`).join(sep)+sep;
+    const tr=$('#mq-track');
+    tr.innerHTML=unit+unit; // 两份完全相同,translateX(-50%)无缝循环
+    // 按内容宽度定速,保证滚动速度一致
+    const w=tr.scrollWidth/2;
+    tr.style.animationDuration=Math.max(8,w/60)+'s';
+    $('#marquee').hidden=false;
+  }catch{}
+}
 
 async function loadCats(){
   const cs=await (await fetch('/api/categories')).json();
@@ -183,7 +211,7 @@ $('#q').addEventListener('input',e=>{
   timer=setTimeout(()=>{st.q=e.target.value.trim();st.page=1;load();},250);
 });
 window.onLangChange=()=>{loadCats();load();};
-loadSettings().then(()=>{loadCats();load();loadAds();});
+loadSettings().then(()=>{loadCats();load();loadAds();loadMarquee();});
 </script>
 </body>
 </html>

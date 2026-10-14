@@ -23,6 +23,7 @@ label.btn input{display:none}
     <button class="nav-item" data-t="stats"><span data-icon="chart"></span><span data-i18n="tab_stats"></span></button>
     <button class="nav-item" data-t="sec"><span data-icon="shield"></span><span data-i18n="tab_sec"></span></button>
     <button class="nav-item" data-t="ads"><span data-icon="mega"></span><span data-i18n="nav_ads"></span></button>
+    <button class="nav-item" data-t="marquee"><span data-icon="ticker"></span><span data-i18n="nav_marquee"></span></button>
     <div class="grow" style="flex:1"></div>
     <a class="nav-item" href="/"><span data-icon="home"></span><span data-i18n="back_home"></span></a>
   </aside>
@@ -208,12 +209,30 @@ label.btn input{display:none}
             <div id="f-msg2" class="msg"></div>
           </div>
         </section>
+        <section id="p-marquee" hidden>
+          <div class="page-head"><h2 data-i18n="pg_mq_t"></h2><p data-i18n="pg_mq_d"></p></div>
+          <div class="card">
+            <h3 id="mq-form-t" data-i18n="mq_new"></h3>
+            <div class="row"><textarea id="m-content" rows="3" data-i18n-ph="mq_content_ph" style="width:100%;max-width:640px"></textarea></div>
+            <div class="row">
+              <label><span data-i18n="mq_color"></span> <input id="m-color" type="color" value="#ef4444" style="width:44px;height:28px;padding:2px"></label>
+              <input id="m-sort" type="number" value="0" style="width:90px">
+              <label><input id="m-enabled" type="checkbox" checked> <span data-i18n="enabled"></span></label>
+              <button id="m-save" data-i18n="add"></button>
+              <button id="m-cancel" class="gray" hidden data-i18n="cancel"></button>
+            </div>
+            <div id="m-msg" class="msg"></div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <table><thead><tr><th data-i18n="f_content"></th><th data-i18n="mq_color"></th><th data-i18n="th_sort"></th><th data-i18n="enabled"></th><th></th></tr></thead><tbody id="mq-tb"></tbody></table>
+          </div>
+        </section>
       </div>
     </div>
   </div>
 </div>
 
-<script src="/common.js?v=20261008"></script>
+<script src="/common.js?v=20261014"></script>
 <script>
 let token=localStorage.getItem('tk')||'',cats=[],editId=null,cache={},pg={page:1,size:20,pages:1},curPage='dash';
 const tb=$('#it-tb');
@@ -255,8 +274,8 @@ async function boot(){if(!token)return;try{const r=await api('GET','/api/auth/ch
 function showPage(k){
   curPage=k;
   document.querySelectorAll('.nav-item[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t===k));
-  ['dash','items','cats','stats','sec','ads'].forEach(p=>$('#p-'+p).hidden=(p!==k));
-  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadSec,ads:loadAds}[k];
+  ['dash','items','cats','stats','sec','ads','marquee'].forEach(p=>$('#p-'+p).hidden=(p!==k));
+  const run={dash:loadDash,items:loadItems,cats:refreshCats,stats:loadStats,sec:loadSec,ads:loadAds,marquee:loadMqList}[k];
   run().catch(e=>{console.error(e)});
 }
 document.querySelectorAll('.nav-item[data-t]').forEach(b=>b.onclick=()=>showPage(b.dataset.t));
@@ -568,6 +587,52 @@ $('#f-save2').onclick=async()=>{
     await api('PUT','/api/admin/settings',{footer_html:$('#f-html').value});
     $('#f-msg2').className='msg ok';$('#f-msg2').textContent=t('save_ok');
   }catch(e){$('#f-msg2').textContent=e.message;}
+};
+/* ---------- 跑马灯 ---------- */
+let mqEditId=null;
+function mqPreview(content){
+  const s=(content||'').replace(/[#*`>\[\]()!]/g,'').replace(/\s+/g,' ').trim();
+  return s.length>42?s.slice(0,42)+'…':(s||'-');
+}
+async function loadMqList(){
+  const d=await api('GET','/api/admin/marquees');
+  $('#mq-tb').innerHTML=d.map(m=>`<tr><td>${esc(mqPreview(m.content))}</td>
+    <td><span style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${esc(m.color)};vertical-align:middle;border:1px solid var(--border)"></span> ${esc(m.color)}</td>
+    <td>${m.sort}</td><td>${m.enabled?'✓':'-'}</td>
+    <td><button data-a="mqedit" data-id="${m.id}">${t('edit')}</button>
+    <button class="danger" data-a="mqdel" data-id="${m.id}">${t('del')}</button></td></tr>`).join('')
+    ||`<tr><td colspan="5" class="empty">${t('none_found')}</td></tr>`;
+}
+function resetMqForm(){
+  mqEditId=null;$('#m-content').value='';$('#m-color').value='#ef4444';$('#m-sort').value=0;$('#m-enabled').checked=true;
+  $('#mq-form-t').textContent=t('mq_new');$('#m-save').textContent=t('add');$('#m-cancel').hidden=true;
+}
+$('#m-cancel').onclick=resetMqForm;
+$('#m-save').onclick=async()=>{
+  $('#m-msg').className='msg';
+  const body={content:$('#m-content').value, color:$('#m-color').value,
+    enabled:$('#m-enabled').checked, sort:Number($('#m-sort').value)||0};
+  try{
+    if(mqEditId)await api('PUT','/api/admin/marquees/'+mqEditId,body);
+    else await api('POST','/api/admin/marquees',body);
+    $('#m-msg').className='msg ok';$('#m-msg').textContent=t('save_ok');
+    resetMqForm();await loadMqList();
+  }catch(e){$('#m-msg').textContent=e.message;}
+};
+$('#mq-tb').onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const id=b.dataset.id;
+  if(b.dataset.a==='mqdel'){
+    if(!confirm(t('confirm_del_mq')))return;
+    await api('DELETE','/api/admin/marquees/'+id);await loadMqList();
+  }else if(b.dataset.a==='mqedit'){
+    const d=await api('GET','/api/admin/marquees');
+    const m=d.find(x=>x.id==id);if(!m)return;
+    mqEditId=m.id;$('#m-content').value=m.content;$('#m-color').value=m.color||'#ef4444';
+    $('#m-sort').value=m.sort;$('#m-enabled').checked=!!m.enabled;
+    $('#mq-form-t').textContent=t('mq_edit_t');$('#m-save').textContent=t('save');$('#m-cancel').hidden=false;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
 };
 boot();
 </script>

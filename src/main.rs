@@ -1021,6 +1021,126 @@ async fn delete_ad(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ======================= 跑马灯(首页顶部滚动横幅) =======================
+
+#[derive(Serialize, FromRow)]
+struct Marquee {
+    id: i64,
+    content: String,
+    color: String,
+    enabled: bool,
+    sort: i64,
+    created_at: String,
+}
+
+#[derive(Deserialize)]
+struct MarqueeIn {
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    color: String,
+    #[serde(default = "ad_enabled_default")]
+    enabled: bool,
+    #[serde(default)]
+    sort: i64,
+}
+
+fn normalize_marquee_color(c: &str) -> String {
+    let c = c.trim();
+    if c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|x| x.is_ascii_hexdigit()) {
+        c.to_string()
+    } else {
+        "#ef4444".to_string()
+    }
+}
+
+async fn list_marquees_pub(State(s): State<AppState>) -> Json<Vec<serde_json::Value>> {
+    let ms: Vec<Marquee> = sqlx::query_as(
+        "SELECT id, content, color, enabled, sort, created_at FROM marquees
+         WHERE enabled = 1 ORDER BY sort ASC, id ASC",
+    )
+    .fetch_all(&s.db)
+    .await
+    .unwrap_or_default();
+    Json(
+        ms.into_iter()
+            .map(|m| {
+                serde_json::json!({ "id": m.id, "html": md_to_html(&m.content), "color": m.color })
+            })
+            .collect(),
+    )
+}
+
+async fn list_marquees(State(s): State<AppState>, h: HeaderMap) -> Result<Json<Vec<Marquee>>, StatusCode> {
+    auth(&s, &h).await?;
+    sqlx::query_as::<_, Marquee>(
+        "SELECT id, content, color, enabled, sort, created_at FROM marquees ORDER BY sort ASC, id ASC",
+    )
+    .fetch_all(&s.db)
+    .await
+    .map(Json)
+    .map_err(db_err)
+}
+
+async fn create_marquee(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Json(b): Json<MarqueeIn>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    auth(&s, &h).await?;
+    if b.content.chars().count() > 20000 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let r = sqlx::query("INSERT INTO marquees(content, color, enabled, sort) VALUES(?,?,?,?)")
+        .bind(b.content)
+        .bind(normalize_marquee_color(&b.color))
+        .bind(b.enabled)
+        .bind(b.sort)
+        .execute(&s.db)
+        .await
+        .map_err(db_err)?;
+    Ok(Json(serde_json::json!({ "id": r.last_insert_rowid() })))
+}
+
+async fn update_marquee(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<i64>,
+    Json(b): Json<MarqueeIn>,
+) -> Result<StatusCode, StatusCode> {
+    auth(&s, &h).await?;
+    if b.content.chars().count() > 20000 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let r = sqlx::query("UPDATE marquees SET content=?, color=?, enabled=?, sort=? WHERE id=?")
+        .bind(b.content)
+        .bind(normalize_marquee_color(&b.color))
+        .bind(b.enabled)
+        .bind(b.sort)
+        .bind(id)
+        .execute(&s.db)
+        .await
+        .map_err(db_err)?;
+    if r.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_marquee(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, StatusCode> {
+    auth(&s, &h).await?;
+    sqlx::query("DELETE FROM marquees WHERE id = ?")
+        .bind(id)
+        .execute(&s.db)
+        .await
+        .map_err(db_err)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 // ======================= 站点设置 =======================
 
 async fn setting_str(db: &sqlx::SqlitePool, key: &str) -> String {
@@ -1511,6 +1631,9 @@ async fn main() {
         .route("/api/ads", get(list_ads_pub))
         .route("/api/admin/ads", get(list_ads).post(create_ad))
         .route("/api/admin/ads/:id", put(update_ad).delete(delete_ad))
+        .route("/api/marquees", get(list_marquees_pub))
+        .route("/api/admin/marquees", get(list_marquees).post(create_marquee))
+        .route("/api/admin/marquees/:id", put(update_marquee).delete(delete_marquee))
         .route("/api/categories", get(list_cats).post(create_cat))
         .route("/api/categories/:id", put(update_cat).delete(delete_cat))
         .route("/api/admin/items/batch", post(batch_items))
