@@ -33,7 +33,7 @@
 .marquee{overflow:hidden;border:1px solid var(--border);border-radius:12px;background:var(--card);margin-bottom:16px}
 .mq-track{display:inline-flex;align-items:center;white-space:nowrap;will-change:transform;animation:mq-scroll 30s linear infinite;padding:10px 0}
 .marquee:hover .mq-track{animation-play-state:paused}
-@keyframes mq-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes mq-scroll{from{transform:translateX(var(--mq-from,100vw))}to{transform:translateX(var(--mq-to,-100%))}}
 .mq-item{display:inline-flex;align-items:center;font-size:14px;font-weight:600;line-height:1.5}
 .mq-item p,.mq-item h1,.mq-item h2,.mq-item h3,.mq-item h4,.mq-item ul,.mq-item ol,.mq-item blockquote{display:inline;margin:0;padding:0}
 .mq-item li{display:inline}
@@ -145,13 +145,17 @@ async function loadMarquee(){
     const ms=await (await fetch('/api/marquees')).json();
     if(!ms.length)return;
     const sep='<span class="mq-sep">◆</span>';
-    const unit=ms.map(m=>`<span class="mq-item" style="color:${m.color}">${m.html}</span>`).join(sep)+sep;
-    const tr=$('#mq-track');
-    tr.innerHTML=unit+unit; // 两份完全相同,translateX(-50%)无缝循环
-    // 按内容宽度定速,保证滚动速度一致
-    const w=tr.scrollWidth/2;
-    tr.style.animationDuration=Math.max(8,w/60)+'s';
-    $('#marquee').hidden=false;
+    const mq=$('#marquee'),tr=$('#mq-track');
+    tr.innerHTML=ms.map(m=>`<span class="mq-item" style="color:${m.color}">${m.html}</span>`).join(sep)+sep;
+    mq.hidden=false; // 先显示才能量到宽度
+    const start=()=>{
+      const W=mq.clientWidth,T=tr.scrollWidth; // 容器可见宽 / 内容总宽
+      tr.style.setProperty('--mq-from',W+'px'); // 起点:内容左边缘贴容器右边缘,从最右侧进入
+      tr.style.setProperty('--mq-to',(-T)+'px'); // 终点:内容完全滚出左侧
+      tr.style.animationDuration=Math.max(6,(W+T)/80)+'s'; // 80px/秒恒定速度
+    };
+    start();
+    let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(start,200);});
   }catch{}
 }
 
